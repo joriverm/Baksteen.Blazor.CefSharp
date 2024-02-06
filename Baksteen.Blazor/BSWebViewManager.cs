@@ -249,33 +249,29 @@ public class BSWebViewManager : WebViewManager
 
     private void CoreWebView2_NavigationStarting(object? sender, BSNavigationStartingEventArgs args)
     {
-        if (Uri.TryCreate(args.Uri, UriKind.RelativeOrAbsolute, out var uri))
-        {
-            var callbackArgs = BSUrlLoadingEventArgs.CreateWithDefaultLoadingStrategy(uri, AppOriginUri);
+        if (!args.IsUserInitiated || !Uri.TryCreate(args.Uri, UriKind.RelativeOrAbsolute, out var uri))
+		return;
+  	
+	var callbackArgs = BSUrlLoadingEventArgs.CreateWithDefaultLoadingStrategy(uri, AppOriginUri);
+	_urlLoading?.Invoke(callbackArgs);
+	if (callbackArgs.UrlLoadingStrategy == BSUrlLoadingStrategy.OpenExternally)
+    		LaunchUriInExternalBrowser(uri);
 
-            _urlLoading?.Invoke(callbackArgs);
-
-            if (callbackArgs.UrlLoadingStrategy == BSUrlLoadingStrategy.OpenExternally)
-            {
-                LaunchUriInExternalBrowser(uri);
-            }
-
-            args.Cancel = callbackArgs.UrlLoadingStrategy != BSUrlLoadingStrategy.OpenInWebView;
-        }
+	args.Cancel = callbackArgs.UrlLoadingStrategy != BSUrlLoadingStrategy.OpenInWebView;
     }
 
     private void CoreWebView2_NewWindowRequested(object? sender, BSNewWindowRequestedEventArgs args)
     {
         // Intercept _blank target <a> tags to always open in device browser.
         // The ExternalLinkCallback is not invoked.
-        if (Uri.TryCreate(args.Uri, UriKind.RelativeOrAbsolute, out var uri))
-        {
-            LaunchUriInExternalBrowser(uri);
-            args.Handled = true;
-        }
+        if (!Uri.TryCreate(args.Uri, UriKind.RelativeOrAbsolute, out var uri))
+            return;
+
+        LaunchUriInExternalBrowser(uri);
+        args.Handled = true;
     }
 
-    private void LaunchUriInExternalBrowser(Uri uri)
+    private static void LaunchUriInExternalBrowser(Uri uri)
     {
         using (var launchBrowser = new Process())
         {
